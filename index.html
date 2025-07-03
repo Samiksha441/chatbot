@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>SchoolBot - Smart Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+    #chatbox {
+      border: 2px solid #555;
+      background: #111;
+      height: 500px;
+      overflow-y: auto;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-radius: 12px;
+    }
+    .message {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 15px;
+      line-height: 1.3;
+      word-wrap: break-word;
+    }
+    .user {
+      background-color: #1a73e8;
+      align-self: flex-end;
+      text-align: right;
+      color: white;
+      font-weight: 600;
+    }
+    .bot {
+      background-color: #333;
+      align-self: flex-start;
+      text-align: left;
+      color: #ccc;
+    }
+    #inputArea {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+    #userInput {
+      flex: 1;
+      padding: 12px 15px;
+      font-size: 17px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+      background: #222;
+      color: white;
+      box-shadow: inset 0 0 6px #555;
+    }
+    #sendButton {
+      padding: 12px 25px;
+      font-size: 17px;
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #sendButton:hover {
+      background-color: #155ab6;
+    }
+    .strength { font-weight: bold; }
+    .weak { color: #ff4d4d; }
+    .medium { color: #ffa500; }
+    .strong { color: #4caf50; }
+  </style>
+</head>
+<body>
+
+  <h2 style="color:#eee;">SchoolBot - Unified Chatbox</h2>
+
+  <div id="chatbox"></div>
+
+  <div id="inputArea">
+    <input type="text" id="userInput" placeholder="Ask a question, or type: password:MyPass or calc:2+2" autocomplete="off" />
+    <button id="sendButton">Send</button>
+  </div>
+
+  <script>
+    const chatbox = document.getElementById("chatbox");
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendButton");
+
+    const qa = {
+      "hi": "Hello! How can I help you today?",
+      "hello": "Hi there!",
+      "bye": "Goodbye! Have a great day!",
+      "what is your name": "I’m SchoolBot, your smart assistant!",
+      "how are you": "I’m just code, but I’m working well!",
+      "what is ai": "AI means Artificial Intelligence – machines mimicking human intelligence.",
+      "what is a chatbot": "A chatbot is a computer program that simulates human conversation.",
+      "who is apj abdul kalam": "He was India’s 11th President and a renowned scientist.",
+      "what is the capital of india": "The capital of India is New Delhi.",
+      "who is the president of india": "As of 2025, the President is Droupadi Murmu.",
+      "what is the national animal of india": "The Bengal Tiger.",
+      "tell me a joke": "Why don’t scientists trust atoms? Because they make up everything!"
+    };
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-IN';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function addMessage(sender, text, className = '') {
+      const msg = document.createElement("div");
+      msg.classList.add("message", sender);
+      if (className) msg.classList.add(className);
+      msg.innerHTML = text.replace(/\n/g, "<br>");
+      chatbox.appendChild(msg);
+      chatbox.scrollTop = chatbox.scrollHeight;
+      if (sender === "bot") speak(msg.innerText);
+    }
+
+    function passwordStrength(pwd) {
+      let strength = 0;
+      let suggestions = [];
+      if (pwd.length >= 8) strength++;
+      else suggestions.push("Use at least 8 characters");
+      if (/[A-Z]/.test(pwd)) strength++;
+      else suggestions.push("Add uppercase letters");
+      if (/[a-z]/.test(pwd)) strength++;
+      else suggestions.push("Add lowercase letters");
+      if (/[0-9]/.test(pwd)) strength++;
+      else suggestions.push("Include numbers");
+      if (/[^A-Za-z0-9]/.test(pwd)) strength++;
+      else suggestions.push("Add special characters");
+
+      let strengthText = "", strengthClass = "";
+      if (strength <= 2) {
+        strengthText = "Weak 🔴";
+        strengthClass = "weak";
+      } else if (strength <= 4) {
+        strengthText = "Medium 🟡";
+        strengthClass = "medium";
+      } else {
+        strengthText = "Strong 🟢";
+        strengthClass = "strong";
+      }
+
+      return { strengthText, strengthClass, suggestions };
+    }
+
+    function calculateExpression(exp) {
+      try {
+        if (!/^[0-9a-zA-Z+\-*/().^,\s]+$/.test(exp)) return "Invalid characters!";
+        exp = exp.replace(/pi/gi, "Math.PI").replace(/e/gi, "Math.E");
+        exp = exp.replace(/(\d+)\s*\^\s*(\d+)/g, "Math.pow($1,$2)");
+        const functions = ["sin", "cos", "tan", "sqrt", "log", "abs", "floor", "ceil", "round"];
+        functions.forEach(fn => {
+          exp = exp.replace(new RegExp(`\\b${fn}\\(`, "g"), `Math.${fn}(`);
+        });
+        return "Result: " + eval(exp);
+      } catch {
+        return "Error in calculation!";
+      }
+    }
+
+    function handleInput(text) {
+      text = text.trim();
+      if (!text) return;
+      addMessage("user", text);
+
+      if (text.toLowerCase().startsWith("password:")) {
+        const pwd = text.slice(9).trim();
+        if (!pwd) return addMessage("bot", "Enter a password after 'password:'");
+        const { strengthText, strengthClass, suggestions } = passwordStrength(pwd);
+        let botMsg = `<div>Password strength: <span class="strength ${strengthClass}">${strengthText}</span></div>`;
+        botMsg += suggestions.length > 0 ? `<div>Suggestions: ${suggestions.join(", ")}</div>` : `<div>Great password!</div>`;
+        return addMessage("bot", botMsg, "bot");
+      }
+
+      if (text.toLowerCase().startsWith("calc:")) {
+        const exp = text.slice(5).trim();
+        if (!exp) return addMessage("bot", "Enter expression after 'calc:'");
+        return addMessage("bot", calculateExpression(exp));
+      }
+
+      const answer = qa[text.toLowerCase()];
+      if (answer) {
+        addMessage("bot", answer);
+      } else {
+        // Wikipedia fallback
+        fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(text))
+          .then(res => res.json())
+          .then(data => {
+            if (data.extract) {
+              let wiki = `<div><strong>${data.title}</strong></div>`;
+              if (data.thumbnail?.source) {
+                wiki += `<img src="${data.thumbnail.source}" alt="${data.title}" style="width:120px;border-radius:8px;margin:8px 0;">`;
+              }
+              wiki += `<div>${data.extract}</div>`;
+              if (data.content_urls?.desktop?.page) {
+                wiki += `<div><a href="${data.content_urls.desktop.page}" target="_blank" style="color:#1a73e8;">Read more on Wikipedia</a></div>`;
+              }
+              addMessage("bot", wiki, "bot");
+            } else {
+              addMessage("bot", "Sorry, I couldn't find anything on Wikipedia.");
+            }
+          })
+          .catch(() => {
+            addMessage("bot", "Failed to fetch data from Wikipedia.");
+          });
+      }
+    }
+
+    sendBtn.onclick = () => {
+      handleInput(input.value);
+      input.value = "";
+      input.focus();
+    };
+
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+  </script>
+
+</body>
+</html>
